@@ -1,5 +1,6 @@
 
 import numpy as np
+import os
 from sklearn.linear_model import LogisticRegression
 
 def get_fake_data():
@@ -22,13 +23,20 @@ def get_fake_data():
 
 
 def get_data():
-
 	from pymongo import MongoClient
+        mongo_url = os.getenv("MONGO_URL")
+        client = MongoClient(mongo_url)
+        db = client.get_default_database()
+        cursor = db.grasps.find()
+        for doc in cursor:
+            print(doc)
+
+
 
 
 
 if __name__ == "__main__":
-
+        get_data()
 	train_X, train_Y, test_X, test_Y, validate_X, validate_Y = get_fake_data()
 
 	regressor = LogisticRegression(
@@ -48,7 +56,7 @@ if __name__ == "__main__":
 		n_jobs=1)
 
 	import IPython
-	IPython.embed()
+	# IPython.embed()
 
 	regressor.fit(train_X,train_Y.flatten())
 

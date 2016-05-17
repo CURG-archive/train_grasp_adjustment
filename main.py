@@ -13,31 +13,46 @@ def get_fake_data():
 
 	train_X = X[0:800]
 	test_X = X[800:900]
-	validate_X = X[900:1000]
 
 	train_Y = Y[0:800]
 	test_Y = Y[800:900]
-	validate_Y = Y[900:1000]
 
-	return (train_X, train_Y, test_X, test_Y, validate_X, validate_Y)
+	return (train_X, train_Y, test_X, test_Y)
 
 
 def get_data():
 	from pymongo import MongoClient
-        mongo_url = os.getenv("MONGO_URL")
-        client = MongoClient(mongo_url)
-        db = client.get_default_database()
-        cursor = db.grasps.find()
-        for doc in cursor:
-            print(doc)
 
+	mongo_url = os.getenv("MONGO_URL")
+	client = MongoClient(mongo_url)
+	db = client.get_default_database()
+	cursor = db.grasps.find()
+	grasps_count = cursor.count()
+	# import IPython
+	# IPython.embed()
+	#num_examples x num tactile sensors
+	X = np.zeros((grasps_count, 96), dtype=np.float32)
+	#stable or not. Just look force closure, so volume > 0
+	Y = np.zeros((grasps_count, ), dtype=np.float32)
 
-
-
+	for i, doc in enumerate(cursor):
+		# import IPython
+		# IPython.embed()
+		# assert false
+		for j, tactile in enumerate(doc["tactile"]):
+			X[i, j] = tactile["force"]
+		Y[i] = np.sign(doc["grasp"]["energy"]["Volume"])
+	train_X = X[:int(grasps_count*0.8)]
+	train_Y = Y[:int(grasps_count*0.8)]
+	test_X = X[int(grasps_count*0.8):]
+	test_Y = Y[int(grasps_count*0.8):]
+	
+	return (train_X, train_Y, test_X, test_Y)
 
 if __name__ == "__main__":
-        get_data()
-	train_X, train_Y, test_X, test_Y, validate_X, validate_Y = get_fake_data()
+	train_X, train_Y, test_X, test_Y = get_data()
+
+	# train_X, train_Y, test_X, test_Y = get_fake_data()
 
 	regressor = LogisticRegression(
 		penalty='l2',
@@ -55,7 +70,7 @@ if __name__ == "__main__":
 		warm_start=False, 
 		n_jobs=1)
 
-	import IPython
+	# import IPython
 	# IPython.embed()
 
 	regressor.fit(train_X,train_Y.flatten())

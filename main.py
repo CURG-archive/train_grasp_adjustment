@@ -171,14 +171,6 @@ def get_stability_classification_data():
 
 	X,Y = shuffle_in_unison_inplace(X,Y)
 
-
-	positive_count = len(Y[Y > 0])
-	print "X.shape: " + str(X.shape)
-	print "positive count: " + str(positive_count)
-	pos_percent =  positive_count / (1.0* X.shape[0])
-	pos_percent = max(pos_percent, 1-pos_percent)
-	print "always guess positive: " + str( pos_percent)
-
 	train_X = X[:int(count*0.8)]
 	train_Y = Y[:int(count*0.8)]
 	test_X = X[int(count*0.8):]
@@ -195,12 +187,6 @@ def get_stability_classification_data():
 def train_logistic_regression_classifier(train_X, train_Y, test_X, test_Y):
 
 	print "train_X.shape" + str(train_X.shape)
-
-
-	# train_X, train_Y, test_X, test_Y = get_fake_data()
-
-	import IPython
-	IPython.embed()
 
 	regressor = LogisticRegression(
 		penalty='l2',
@@ -220,16 +206,44 @@ def train_logistic_regression_classifier(train_X, train_Y, test_X, test_Y):
 
 	regressor.fit(train_X, train_Y)
 
-	print regressor.score(test_X, test_Y)
+	train_score = regressor.score(train_X, train_Y)
+	test_score = regressor.score(test_X, test_Y)
+
+	#compute score for guessing largest category every time
+	positive_train_count = len(train_Y[train_Y == 1])
+	zero_train_count = len(train_Y[train_Y == 0])
+	negative_train_count = len(train_Y[train_Y == -1])
+
+	largest_count = max([positive_train_count, zero_train_count, negative_train_count])
+	total = sum([positive_train_count, zero_train_count, negative_train_count])
+	largest_category_percent =  (largest_count * 1.0) / total
+
+	print "percentage of training data in largest single category: " + str(largest_category_percent)
+	print "regressor score for train data:" + str(train_score)
+	print "regressor score for test data:" + str(test_score)
 
 
 if __name__ == "__main__":
 	#get data 
+
+	#get fake data:
+	#train_X, train_Y, test_X, test_Y = get_fake_data()
+	#use this is you want to run with adjustment data
 	train_X, train_Y, test_X, test_Y = get_adjustment_data()
+	#use this is you want to classifiy stability.
 	#train_X, train_Y, test_X, test_Y = get_stability_classification_data()
 
 	#train classifier
 	train_logistic_regression_classifier(train_X, train_Y, test_X, test_Y)
+
+	#useful commands:
+
+	#if you want to plot a histogram:
+	#import matplotlib.pyplot as plt
+	#plt.hist(train_Y)
+	#plt.show()
+
+
 
 
 

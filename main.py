@@ -2,6 +2,9 @@
 import numpy as np
 import os
 from sklearn.linear_model import LogisticRegression
+from sklearn.decomposition import PCA
+
+from sklearn import svm
 
 def get_fake_data():
 
@@ -72,7 +75,7 @@ def get_adjustment_data():
 	X = np.zeros((num_frames, 96), dtype=np.float32)
 	#stable or not. Just look force closure, so volume > 0
 	Y = np.zeros((num_frames, ), dtype=np.float32)
-
+        transfs = []
 	transf  = None
 	count = 0
 	for perturbation_frame in cursor:
@@ -227,6 +230,49 @@ def train_logistic_regression_classifier(train_X, train_Y, test_X, test_Y):
 	print "regressor score for train data:" + str(train_score)
 	print "regressor score for test data:" + str(test_score)
 
+def train_svm_classifier(train_X, train_Y, test_X, test_Y):
+
+	print "train_X.shape" + str(train_X.shape)
+
+		
+            
+        clf = svm.SVC(gamma=0.001, C=100)
+        clf.fit(train_X, train_Y)
+
+	import IPython
+	IPython.embed()
+	train_score = clf.score(train_X, train_Y)
+	test_score = svm.score(test_X, test_Y)
+
+	#compute score for guessing largest category every time
+	positive_train_count = len(train_Y[train_Y == 1])
+	zero_train_count = len(train_Y[train_Y == 0])
+	negative_train_count = len(train_Y[train_Y == -1])
+
+	largest_count = max([positive_train_count, zero_train_count, negative_train_count])
+	total = sum([positive_train_count, zero_train_count, negative_train_count])
+	largest_category_percent =  (largest_count * 1.0) / total
+
+	print "percentage of training data in largest single category: " + str(largest_category_percent)
+	print "regressor score for train data:" + str(train_score)
+	print "regressor score for test data:" + str(test_score)
+
+
+def pca(X, feature_count):
+    pca = PCA(n_components=feature_count)
+    pca.fit(X)
+    X = pca.transform(X)
+    return X
+
+
+def pca_train_logistic_regression_classifier(new_train_X, train_Y, new_test_X, test_Y, feature_count):
+
+    train_logistic_regression_classifier(pca(train_X, feature_count), train_Y, pca(test_X, feature_count), test_Y)
+    
+    return
+
+def pca_train_logistics_regression_classifer():
+    return
 
 if __name__ == "__main__":
 	#get data 
@@ -235,13 +281,16 @@ if __name__ == "__main__":
 	#train_X, train_Y, test_X, test_Y = get_fake_data()
 	#use this is you want to classifiy stability.
 	train_X, train_Y, test_X, test_Y = get_stability_classification_data()
+        
+        train_svm_classifier(train_X, train_Y, test_X, test_Y)
 	#use this is you want to run with adjustment data
 	#train_X, train_Y, test_X, test_Y = get_adjustment_data()
 
-
 	#train classifier
-	train_logistic_regression_classifier(train_X, train_Y, test_X, test_Y)
-
+	# train_logistic_regression_classifier(train_X, train_Y, test_X, test_Y)
+        for count in [96, 30, 20, 10]:
+            print("Feature Count: %d\n", count)
+	    pca_train_logistic_regression_classifier(train_X, train_Y, test_X, test_Y, count)
 	#useful commands:
 
 	#if you want to plot a histogram:

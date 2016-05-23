@@ -23,34 +23,34 @@ def get_fake_data():
 	return (train_X, train_Y, test_X, test_Y)
 
 def shuffle_in_unison_inplace(a, b):
-    assert len(a) == len(b)
-    p = np.random.permutation(len(a))
-    return a[p], b[p]
+	assert len(a) == len(b)
+	p = np.random.permutation(len(a))
+	return a[p], b[p]
 
 # def get_adjustment_data():
-# 	"""
-# 	follow the function get_stability_classification_data
-# 	but iterate over the other collection of pertubations
-# 	with has f0, f1, .. or grasp0, grasp1
-# 	X will be exactly the same as get_stability_classification_data 
-# 	but the Y will be the sign of the difference in the Volume between
-# 	f0 and f1 
-# 	and only keep X and Y for a all the examples with a single perturbation type.
-# 		"transf" : {
-# 		"translation" : {
-# 			"0" : 0,
-# 			"1" : 0,
-# 			"2" : 0
-# 		},
-# 		"orientation" : {
-# 			"0" : 0.9921976672293292,
-# 			"1" : 0,
-# 			"2" : -0.12467473338522772,
-# 			"3" : 0
-# 		}
-# 	} 
-# 	one for each of 
-# 	perturbations.push_back(rotXYZ(0.25, 0, 0));
+#   """
+#   follow the function get_stability_classification_data
+#   but iterate over the other collection of pertubations
+#   with has f0, f1, .. or grasp0, grasp1
+#   X will be exactly the same as get_stability_classification_data 
+#   but the Y will be the sign of the difference in the Volume between
+#   f0 and f1 
+#   and only keep X and Y for a all the examples with a single perturbation type.
+#       "transf" : {
+#       "translation" : {
+#           "0" : 0,
+#           "1" : 0,
+#           "2" : 0
+#       },
+#       "orientation" : {
+#           "0" : 0.9921976672293292,
+#           "1" : 0,
+#           "2" : -0.12467473338522772,
+#           "3" : 0
+#       }
+#   } 
+#   one for each of 
+#   perturbations.push_back(rotXYZ(0.25, 0, 0));
 #     perturbations.push_back(rotXYZ(0, 0.25, 0));
 #     perturbations.push_back(rotXYZ(0, 0, 0.25));
 #     perturbations.push_back(rotXYZ(-0.25, 0, 0));
@@ -59,14 +59,43 @@ def shuffle_in_unison_inplace(a, b):
 #     perturbations.push_back(translate_transf(vec3(0,0, -20)));
 #     perturbations.push_back(translate_transf(vec3(0,0, 20)));
 
-# 	"""
-# 	break
-def get_adjustment_data():
+#   """
+#   break
+
+def get_unique_transfs(db):
+	
+	transfs = db.perturbations.distinct("transf")
+	# import IPython
+	# IPython.embed()
+
+	for idx, perturbation_frame in enumerate(transfs):
+	
+		qw = perturbation_frame['orientation']['0']
+		qx = perturbation_frame['orientation']['1']
+		qy = perturbation_frame['orientation']['2']
+		qz = perturbation_frame['orientation']['3']
+		x = perturbation_frame['translation']['0']
+		y = perturbation_frame['translation']['1']
+		z = perturbation_frame['translation']['2']
+
+		transfs[idx] = tuple([qw, qx, qy, qz, x, y, z])
+
+	# import IPython
+	# IPython.embed()
+	
+	return transfs
+
+
+
+def get_adjustment_data(is_pca=False, feature_count=30, transf_idx=0):
 	from pymongo import MongoClient
 
 	mongo_url = os.getenv("MONGO_URL")
 	client = MongoClient(mongo_url)
 	db = client.get_default_database()
+	# import IPython
+	# IPython.embed()
+	transf = get_unique_transfs(db)[transf_idx]
 	cursor = db.perturbations.find()
 
 	num_frames = cursor.count()
@@ -75,8 +104,7 @@ def get_adjustment_data():
 	X = np.zeros((num_frames, 96), dtype=np.float32)
 	#stable or not. Just look force closure, so volume > 0
 	Y = np.zeros((num_frames, ), dtype=np.float32)
-        transfs = []
-	transf  = None
+
 	count = 0
 	for perturbation_frame in cursor:
 
@@ -90,12 +118,8 @@ def get_adjustment_data():
 
 		transf_temp = tuple([qw, qx, qy, qz, x, y, z])
 
-
-		if transf is None:
-			transf = transf_temp
-
 		if transf != transf_temp:
-			print "skipping this transf becaue it is not the transformation we want"
+			# print "skipping this transf becaue it is not the transformation we want"
 			continue
 
 
@@ -130,6 +154,9 @@ def get_adjustment_data():
 	pos_percent = max(pos_percent, 1-pos_percent)
 	print "always guess positive: " + str( pos_percent)
 
+	if is_pca == True:
+		X = pca(X, feature_count)
+
 	train_X = X[:int(count*0.8)]
 	train_Y = Y[:int(count*0.8)]
 	test_X = X[int(count*0.8):]
@@ -139,12 +166,13 @@ def get_adjustment_data():
 
 
 
-def get_stability_classification_data():
+def get_stability_classification_data(is_pca=False, feature_count=30):
 	from pymongo import MongoClient
 
 	mongo_url = os.getenv("MONGO_URL")
 	client = MongoClient(mongo_url)
 	db = client.get_default_database()
+	get_unique_transf(db)
 	cursor = db.grasps.find()
 	grasps_count = cursor.count()
 	# import IPython
@@ -174,6 +202,8 @@ def get_stability_classification_data():
 
 	X,Y = shuffle_in_unison_inplace(X,Y)
 
+	if is_pca == True:
+		X = pca(X, feature_count)
 	#try projecting data into 10 dimension space rather than 96
 	#X = PCA(X)
 	#print X.shape
@@ -190,7 +220,7 @@ def get_stability_classification_data():
 #X 10K x 96
 #
 # def train_adjustment_classifier():
-# 	break
+#   break
 
 def train_logistic_regression_classifier(train_X, train_Y, test_X, test_Y):
 
@@ -230,14 +260,16 @@ def train_logistic_regression_classifier(train_X, train_Y, test_X, test_Y):
 	print "regressor score for train data:" + str(train_score)
 	print "regressor score for test data:" + str(test_score)
 
+	return largest_category_percent, train_score, test_score
+
 def train_svm_classifier(train_X, train_Y, test_X, test_Y):
 
 	print "train_X.shape" + str(train_X.shape)
 
 		
-            
-        clf = svm.SVC(gamma=0.001, C=100)
-        clf.fit(train_X, train_Y)
+			
+	clf = svm.SVC(gamma=0.001, C=100)
+	clf.fit(train_X, train_Y)
 
 	#import IPython
 	#IPython.embed()
@@ -257,24 +289,26 @@ def train_svm_classifier(train_X, train_Y, test_X, test_Y):
 	print "regressor score for train data:" + str(train_score)
 	print "regressor score for test data:" + str(test_score)
 
+	return largest_category_percent, train_score, test_score
+
 
 def pca(X, feature_count):
-    pca = PCA(n_components=feature_count)
-    pca.fit(X)
-    X = pca.transform(X)
-    return X
+	pca = PCA(n_components=feature_count)
+	pca.fit(X)
+	X = pca.transform(X)
+	return X
 
 
 def pca_train_logistic_regression_classifier(new_train_X, train_Y, new_test_X, test_Y, feature_count):
 
-    train_logistic_regression_classifier(pca(train_X, feature_count), train_Y, pca(test_X, feature_count), test_Y)
-    
-    return
+	train_logistic_regression_classifier(pca(train_X, feature_count), train_Y, pca(test_X, feature_count), test_Y)
+	
+	return
 
 def pca_train_classifier(algo_func, feature_count, new_train_X, train_Y, new_test_X, test_Y):
 
-    algo_func(pca(train_X, feature_count), train_Y, pca(test_X, feature_count), test_Y)
-    return
+	algo_func(pca(train_X, feature_count), train_Y, pca(test_X, feature_count), test_Y)
+	return
 
 if __name__ == "__main__":
 	#get data 
@@ -282,19 +316,56 @@ if __name__ == "__main__":
 	#get fake data:
 	#train_X, train_Y, test_X, test_Y = get_fake_data()
 	#use this is you want to classifiy stability.
-	train_X, train_Y, test_X, test_Y = get_stability_classification_data()
-        
+	
+		
 	#use this is you want to run with adjustment data
 	#train_X, train_Y, test_X, test_Y = get_adjustment_data()
 
 	#train classifier
 	# train_logistic_regression_classifier(train_X, train_Y, test_X, test_Y)
-        for count in [96, 30, 20, 10]:
-            print("\nFeature Count: " + str(count))
-            print("logistic_regression:\n")
-	    pca_train_classifier(train_logistic_regression_classifier, count, train_X, train_Y, test_X, test_Y)
-            print("svm:\n")
-	    pca_train_classifier(train_svm_classifier, count, train_X, train_Y, test_X, test_Y)
+
+	import csv
+	with open('results.csv', 'wb') as csvfile:
+
+		fieldnames = ["transf_idx", "feature_count", "guess_percent", "train_score", "test_score", "algorithm", "data_type"]
+		writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+		writer.writeheader()
+
+		for idx in [0, 1, 2, 3, 4, 5, 6, 7]:
+			print("\nTransf Idx: " + str(idx))
+			for count in [96, 30, 20, 10]:
+				print("\nFeature Count: " + str(count))
+				train_X, train_Y, test_X, test_Y = get_adjustment_data(is_pca=True, feature_count=count, transf_idx=idx)
+
+				print("\nlogistic_regression:\n")
+				largest_category_percent, train_score, test_score = train_logistic_regression_classifier(train_X, train_Y, test_X, test_Y)
+
+				data = {
+					"transf_idx": idx, 
+					"feature_count": count, 
+					"guess_percent": largest_category_percent, 
+					"train_score": train_score, 
+					"test_score": test_score,
+					"algorithm": "LogisticsRegression",
+					"data_type": "adjustment"
+				}
+				# import IPython
+				# IPython.embed()
+				writer.writerow(data)
+				print("\nsvm:\n")
+				largest_category_percent, train_score, test_score = train_svm_classifier(train_X, train_Y, test_X, test_Y)
+				data = {
+					"transf_idx": idx, 
+					"feature_count": count, 
+					"guess_percent": largest_category_percent, 
+					"train_score": train_score, 
+					"test_score": test_score,
+					"algorithm": "svm",
+					"data_type": "adjustment"
+				}
+				writer.writerow(data)
+
+
 	#useful commands:
 
 	#if you want to plot a histogram:

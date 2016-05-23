@@ -171,6 +171,11 @@ def get_stability_classification_data():
 
 	X,Y = shuffle_in_unison_inplace(X,Y)
 
+	#try projecting data into 10 dimension space rather than 96
+	#X = PCA(X)
+	#print X.shape
+	#should be (num_examples, 10) now not (num_examples, 96)
+
 	train_X = X[:int(count*0.8)]
 	train_Y = Y[:int(count*0.8)]
 	test_X = X[int(count*0.8):]
@@ -228,10 +233,11 @@ if __name__ == "__main__":
 
 	#get fake data:
 	#train_X, train_Y, test_X, test_Y = get_fake_data()
-	#use this is you want to run with adjustment data
-	train_X, train_Y, test_X, test_Y = get_adjustment_data()
 	#use this is you want to classifiy stability.
-	#train_X, train_Y, test_X, test_Y = get_stability_classification_data()
+	train_X, train_Y, test_X, test_Y = get_stability_classification_data()
+	#use this is you want to run with adjustment data
+	#train_X, train_Y, test_X, test_Y = get_adjustment_data()
+
 
 	#train classifier
 	train_logistic_regression_classifier(train_X, train_Y, test_X, test_Y)

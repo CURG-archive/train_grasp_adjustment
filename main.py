@@ -293,6 +293,8 @@ if __name__ == "__main__":
             print("\nFeature Count: " + str(count))
             print("logistic_regression:\n")
 	    pca_train_classifier(train_logistic_regression_classifier, count, train_X, train_Y, test_X, test_Y)
+            print("svm:\n")
+	    pca_train_classifier(train_svm_classifier, count, train_X, train_Y, test_X, test_Y)
 	#useful commands:
 
 	#if you want to plot a histogram:

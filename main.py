@@ -239,10 +239,10 @@ def train_svm_classifier(train_X, train_Y, test_X, test_Y):
         clf = svm.SVC(gamma=0.001, C=100)
         clf.fit(train_X, train_Y)
 
-	import IPython
-	IPython.embed()
+	#import IPython
+	#IPython.embed()
 	train_score = clf.score(train_X, train_Y)
-	test_score = svm.score(test_X, test_Y)
+	test_score = clf.score(test_X, test_Y)
 
 	#compute score for guessing largest category every time
 	positive_train_count = len(train_Y[train_Y == 1])
@@ -271,7 +271,9 @@ def pca_train_logistic_regression_classifier(new_train_X, train_Y, new_test_X, t
     
     return
 
-def pca_train_logistics_regression_classifer():
+def pca_train_classifier(algo_func, feature_count, new_train_X, train_Y, new_test_X, test_Y):
+
+    algo_func(pca(train_X, feature_count), train_Y, pca(test_X, feature_count), test_Y)
     return
 
 if __name__ == "__main__":
@@ -282,15 +284,15 @@ if __name__ == "__main__":
 	#use this is you want to classifiy stability.
 	train_X, train_Y, test_X, test_Y = get_stability_classification_data()
         
-        train_svm_classifier(train_X, train_Y, test_X, test_Y)
 	#use this is you want to run with adjustment data
 	#train_X, train_Y, test_X, test_Y = get_adjustment_data()
 
 	#train classifier
 	# train_logistic_regression_classifier(train_X, train_Y, test_X, test_Y)
         for count in [96, 30, 20, 10]:
-            print("Feature Count: %d\n", count)
-	    pca_train_logistic_regression_classifier(train_X, train_Y, test_X, test_Y, count)
+            print("\nFeature Count: " + str(count))
+            print("logistic_regression:\n")
+	    pca_train_classifier(train_logistic_regression_classifier, count, train_X, train_Y, test_X, test_Y)
 	#useful commands:
 
 	#if you want to plot a histogram:

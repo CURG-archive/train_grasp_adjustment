@@ -96,6 +96,15 @@ def get_adjustment_data(is_pca=False, feature_count=30, transf_idx=0):
 	# import IPython
 	# IPython.embed()
 	transf = get_unique_transfs(db)[transf_idx]
+			qw = transf[0]
+		qx =  transf[1]
+		qy =  transf[2]
+		qz =  transf[3]
+		x =  transf[4]
+		y = transf[5]
+		z =  transf[6]
+
+	goal_frame = PyKDL.Frame(PyKDL.Rotation.Quaternion(qx,qy,qz,qw),PyKDL.Vector(x,y,z))
 	cursor = db.perturbations.find()
 
 	num_frames = cursor.count()
@@ -106,7 +115,7 @@ def get_adjustment_data(is_pca=False, feature_count=30, transf_idx=0):
 	Y = np.zeros((num_frames, ), dtype=np.float32)
 
 	count = 0
-	for perturbation_frame in cursor:
+	for i, perturbation_frame in enumerate(cursor):
 
 		qw = perturbation_frame['transf']['orientation']['0']
 		qx = perturbation_frame['transf']['orientation']['1']
@@ -117,17 +126,26 @@ def get_adjustment_data(is_pca=False, feature_count=30, transf_idx=0):
 		z = perturbation_frame['transf']['translation']['2']
 
 		transf_temp = tuple([qw, qx, qy, qz, x, y, z])
+		frame_temp = PyKDL.Frame(PyKDL.Rotation.Quaternion(qx,qy,qz,qw),PyKDL.Vector(x,y,z))
 
-		if transf != transf_temp:
+		if goal_frame != frame_temp and goal_frame != frame_temp.inverse():
 			# print "skipping this transf becaue it is not the transformation we want"
 			continue
 
+		have_inverse = False
+		if  goal_frame == frame_temp.inverse():
+			have_inverse = True
 
 		oid = perturbation_frame["f0"]
-		grasp_frame_0 = db.grasps.find({"_id": oid}).next()
-
+		try:
+			grasp_frame_0 = db.grasps.find({"_id": oid}).next()
+		except:
+			print "BAD FRAME: " + str(perturbation_frame["_id"]) + str(i)
+			continue
+				
 		for j, tactile in enumerate(grasp_frame_0["tactile"]):
 			X[count, j] = tactile["force"]
+
 		volume0 = grasp_frame_0['grasp']['energy']['Volume']
 
 		oid = perturbation_frame["f1"]

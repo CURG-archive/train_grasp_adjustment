@@ -5,6 +5,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import PCA
 
 from sklearn import svm
+import PyKDL
+from pymongo import MongoClient
 
 def get_fake_data():
 
@@ -85,7 +87,11 @@ def get_unique_transfs(db):
 	
 	return transfs
 
-
+def get_db():
+	mongo_url = os.getenv("MONGO_URL")
+	client = MongoClient(mongo_url)
+	db = client.get_default_database()
+	return db
 
 def get_adjustment_data(is_pca=False, feature_count=30, transf_idx=0):
 	from pymongo import MongoClient
@@ -96,13 +102,13 @@ def get_adjustment_data(is_pca=False, feature_count=30, transf_idx=0):
 	# import IPython
 	# IPython.embed()
 	transf = get_unique_transfs(db)[transf_idx]
-			qw = transf[0]
-		qx =  transf[1]
-		qy =  transf[2]
-		qz =  transf[3]
-		x =  transf[4]
-		y = transf[5]
-		z =  transf[6]
+	qw = transf[0]
+	qx =  transf[1]
+	qy =  transf[2]
+	qz =  transf[3]
+	x =  transf[4]
+	y = transf[5]
+	z =  transf[6]
 
 	goal_frame = PyKDL.Frame(PyKDL.Rotation.Quaternion(qx,qy,qz,qw),PyKDL.Vector(x,y,z))
 	cursor = db.perturbations.find()
@@ -128,17 +134,21 @@ def get_adjustment_data(is_pca=False, feature_count=30, transf_idx=0):
 		transf_temp = tuple([qw, qx, qy, qz, x, y, z])
 		frame_temp = PyKDL.Frame(PyKDL.Rotation.Quaternion(qx,qy,qz,qw),PyKDL.Vector(x,y,z))
 
-		if goal_frame != frame_temp and goal_frame != frame_temp.inverse():
+		if goal_frame != frame_temp and goal_frame != frame_temp.Inverse():
 			# print "skipping this transf becaue it is not the transformation we want"
 			continue
 
 		have_inverse = False
-		if  goal_frame == frame_temp.inverse():
+		if  goal_frame == frame_temp.Inverse():
 			have_inverse = True
+			oid_f0 = perturbation_frame["f1"]
+			oid_f1 = perturbation_frame["f0"]
+ 		else:
+ 			oid_f0 = perturbation_frame["f0"]
+			oid_f1 = perturbation_frame["f1"]
 
-		oid = perturbation_frame["f0"]
 		try:
-			grasp_frame_0 = db.grasps.find({"_id": oid}).next()
+			grasp_frame_0 = db.grasps.find({"_id": oid_f0}).next()
 		except:
 			print "BAD FRAME: " + str(perturbation_frame["_id"]) + str(i)
 			continue
@@ -148,8 +158,12 @@ def get_adjustment_data(is_pca=False, feature_count=30, transf_idx=0):
 
 		volume0 = grasp_frame_0['grasp']['energy']['Volume']
 
-		oid = perturbation_frame["f1"]
-		grasp_frame_1 = db.grasps.find({"_id": oid}).next()
+		try:
+			grasp_frame_1 = db.grasps.find({"_id": oid_f1}).next()
+		except:
+			print "BAD FRAME: " + str(perturbation_frame["_id"]) + str(i)
+			continue
+
 		volume1 = grasp_frame_1['grasp']['energy']['Volume']
 
 		volume_delta = volume1 - volume0
@@ -185,7 +199,7 @@ def get_adjustment_data(is_pca=False, feature_count=30, transf_idx=0):
 
 
 def get_stability_classification_data(is_pca=False, feature_count=30):
-	from pymongo import MongoClient
+	
 
 	mongo_url = os.getenv("MONGO_URL")
 	client = MongoClient(mongo_url)
@@ -349,9 +363,9 @@ if __name__ == "__main__":
 		writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 		writer.writeheader()
 
-		for idx in [0, 1, 2, 3, 4, 5, 6, 7]:
+		for idx in range(len(get_unique_transfs(get_db()))):
 			print("\nTransf Idx: " + str(idx))
-			for count in [96, 30, 20, 10]:
+			for count in [96,50, 30]:
 				print("\nFeature Count: " + str(count))
 				train_X, train_Y, test_X, test_Y = get_adjustment_data(is_pca=True, feature_count=count, transf_idx=idx)
 
